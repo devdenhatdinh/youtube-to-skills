@@ -61,6 +61,71 @@ class TestParagraphs(unittest.TestCase):
         self.assertEqual(ft.events_to_paragraphs([]), [])
 
 
+class TestResolveLangs(unittest.TestCase):
+    def test_auto_puts_video_lang_first(self):
+        self.assertEqual(ft.resolve_langs("auto", "ja"), ["ja", "vi", "en"])
+
+    def test_auto_without_video_lang(self):
+        self.assertEqual(ft.resolve_langs("auto", None), ["vi", "en"])
+
+    def test_explicit_list_dedupes(self):
+        self.assertEqual(ft.resolve_langs("ko, auto", "en"), ["ko", "en", "vi"])
+
+
+def _info(lang=None, subs=(), autos=()):
+    return {"language": lang,
+            "subtitles": {k: [] for k in subs},
+            "automatic_captions": {k: [] for k in autos}}
+
+
+class TestSelectCaptionTrack(unittest.TestCase):
+    def test_manual_in_preferred_lang(self):
+        info = _info("en", subs=["en", "vi"], autos=["en-orig", "en", "vi"])
+        self.assertEqual(ft.select_caption_track(info, ["vi", "en"]), ("vi", "manual", "vi"))
+
+    def test_regional_variant_matches(self):
+        info = _info("en", subs=["en-US"])
+        self.assertEqual(ft.select_caption_track(info, ["en"]), ("en-US", "manual", "en-US"))
+
+    def test_asr_in_spoken_lang(self):
+        info = _info("vi", autos=["vi-orig", "vi", "en"])
+        self.assertEqual(ft.select_caption_track(info, ["vi", "en"]), ("vi-orig", "auto", "vi"))
+
+    def test_asr_without_orig_suffix(self):
+        info = _info("vi", autos=["vi", "en"])
+        self.assertEqual(ft.select_caption_track(info, ["vi"]), ("vi", "auto", "vi"))
+
+    def test_no_translation_by_default(self):
+        # English talk, user prefers Vietnamese: use English ASR, not machine-translated vi.
+        info = _info("en", autos=["en-orig", "en", "vi"])
+        self.assertEqual(ft.select_caption_track(info, ["vi"]), ("en-orig", "auto", "en"))
+
+    def test_translation_when_allowed(self):
+        info = _info("en", autos=["en-orig", "en", "vi"])
+        self.assertEqual(ft.select_caption_track(info, ["vi"], allow_translated=True),
+                         ("vi", "auto-translated", "vi"))
+
+    def test_fallback_prefers_manual_original(self):
+        info = _info("ja", subs=["ja", "fr"], autos=["ja-orig"])
+        self.assertEqual(ft.select_caption_track(info, ["vi"]), ("ja", "manual", "ja"))
+
+    def test_live_chat_ignored(self):
+        info = _info(None, subs=["live_chat"])
+        self.assertEqual(ft.select_caption_track(info, ["vi", "en"]), (None, None, None))
+
+
+class TestEstimateTokens(unittest.TestCase):
+    def test_vietnamese_costs_more_than_english(self):
+        text = "một hai ba bốn năm"
+        self.assertGreater(ft.estimate_tokens(text, "vi"), ft.estimate_tokens(text, "en"))
+
+    def test_no_space_scripts_count_characters(self):
+        self.assertEqual(ft.estimate_tokens("日本語 です", "ja"), 5)
+
+    def test_regional_code(self):
+        self.assertEqual(ft.estimate_tokens("a b", "en-US"), ft.estimate_tokens("a b", "en"))
+
+
 class TestSubsample(unittest.TestCase):
     def test_keeps_first_last_and_deletes_rest(self):
         with tempfile.TemporaryDirectory() as td:

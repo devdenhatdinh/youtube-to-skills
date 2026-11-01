@@ -1,134 +1,151 @@
-# youtube-to-skill
+# youtube-to-skill (bản tiếng Việt)
 
-A [Claude Code](https://claude.com/claude-code) skill that turns YouTube videos and playlists into structured, reusable agent skills — or just answers questions about a video without creating any files.
+Một skill cho [Claude Code](https://claude.com/claude-code) biến video và playlist YouTube thành agent skill có cấu trúc, dùng lại được — hoặc chỉ trả lời câu hỏi về một video mà không tạo file nào.
 
-It fetches transcripts with yt-dlp (manual subtitles preferred, auto-captions as fallback), maps YouTube chapter markers to sections, and optionally extracts slide keyframes with ffmpeg so the agent can read on-screen code, tables, and diagrams that never appear in a transcript.
+Đây là bản fork của [EftikharAzim/youtube-to-skill](https://github.com/EftikharAzim/youtube-to-skill), được Việt hóa cho người dùng Việt:
 
-## Why
+- **Giao tiếp và skill sinh ra bằng tiếng Việt**, giữ nguyên tên framework/thuật ngữ gốc kèm diễn giải tiếng Việt.
+- **Xem được video ở mọi ngôn ngữ** — tiếng Việt, tiếng Anh, Nhật, Trung, Hàn, ... Script tự chọn phụ đề tốt nhất (`--lang auto`): phụ đề thủ công theo ngôn ngữ gốc của video → tiếng Việt → tiếng Anh, nếu không có thì phụ đề tự động (ASR) của ngôn ngữ gốc. Agent đọc bản gốc rồi tự dịch, thay vì dùng phụ đề dịch máy của YouTube.
+- Ước tính token theo ngôn ngữ (tiếng Việt và chữ CJK tốn token hơn tiếng Anh).
+- In tiếng Việt và ký tự Unicode an toàn trên console Windows.
 
-A conference talk or lecture series you watched last month is gone from working memory. Any chat assistant can summarize a video on demand, but a summary is ephemeral prose — you re-read it top to bottom, and it dies in the chat history. A skill is a file your coding agent loads on demand while you work: ask about one concept and it pulls the one chapter that covers it, cites the timestamp where the speaker said it, and links you to that exact second of the video. A twelve-lecture course costs you one chapter per question, not the whole course.
+Skill tải transcript bằng yt-dlp (ưu tiên phụ đề thủ công, phụ đề tự động làm dự phòng), ánh xạ mốc chương YouTube thành các phần, và có thể trích keyframe slide bằng ffmpeg để agent đọc được code, bảng, sơ đồ trên màn hình — những thứ không bao giờ xuất hiện trong transcript.
 
-Transcripts alone also lose whatever was on screen. The optional visual pass reads slide keyframes, so the code, tables, and diagrams a speaker showed — but never spoke aloud — end up in the chapters too.
+## Vì sao
 
-Convert a playlist once; from then on your agent answers from it, with sources.
+Một bài nói hội thảo hay chuỗi bài giảng bạn xem tháng trước đã trôi khỏi trí nhớ. Chatbot nào cũng tóm tắt được video khi được hỏi, nhưng bản tóm tắt là văn xuôi dùng một lần — phải đọc lại từ đầu, và nó chìm trong lịch sử chat. Một skill là file mà coding agent nạp khi cần trong lúc bạn làm việc: hỏi về một khái niệm, agent mở đúng chương nói về nó, trích mốc thời gian diễn giả nói câu đó, và đưa link tới đúng giây đó trong video. Một khóa học mười hai bài chỉ tốn một chương cho mỗi câu hỏi, không phải cả khóa.
 
-## What it produces
+Chỉ có transcript thì mất hết những gì trên màn hình. Visual pass tùy chọn đọc keyframe slide, nên code, bảng, sơ đồ mà diễn giả trình chiếu — nhưng không đọc thành lời — cũng có trong các chương.
 
-A skill in the same shape as [book-to-skill](https://github.com/virgiliojr94/book-to-skill) output, so book-derived and video-derived knowledge bases read identically:
+Chuyển playlist một lần; từ đó agent trả lời dựa trên nó, có nguồn.
+
+## Kết quả tạo ra
+
+Một skill cùng cấu trúc với đầu ra của [book-to-skill](https://github.com/virgiliojr94/book-to-skill), để kho kiến thức từ sách và từ video đọc giống nhau:
 
 ```
-yt-speaker-topic/
-├── SKILL.md          core frameworks, chapter index, topic index
-├── chapters/         one file per video (playlists) or per chapter marker
-├── glossary.md       terms with definitions, cited (ch N, H:MM:SS)
-├── patterns.md       techniques with when-to-use / how / trade-offs
-└── cheatsheet.md     decision rules, thresholds, trade-off tables
+yt-dien-gia-chu-de/
+├── SKILL.md          framework cốt lõi, mục lục chương, chỉ mục chủ đề
+├── chapters/         mỗi video (playlist) hoặc mỗi mốc chương một file
+├── glossary.md       thuật ngữ gốc + tiếng Việt, có trích dẫn (ch N, H:MM:SS)
+├── patterns.md       kỹ thuật: khi nào dùng / cách làm / đánh đổi
+└── cheatsheet.md     quy tắc quyết định, ngưỡng, bảng đánh đổi
 ```
 
-Every extracted claim carries the timestamp where the speaker states it, and each chapter links to `<url>&t=<seconds>s` so you can jump to the source moment.
+Mọi nội dung trích xuất đều kèm mốc thời gian nơi diễn giả nói ra, và mỗi chương có link `<url>&t=<giây>s` để nhảy tới đúng khoảnh khắc trong video.
 
-## Usage
+## Cách dùng
 
-| You say | What happens |
+| Bạn nói | Điều xảy ra |
 |---|---|
-| "What does this talk say about leader election? \<url\>" | Answers in-chat with timestamps. No files. |
-| "Find videos about Raft consensus" | Searches YouTube, shows title/channel/duration/views, you pick. |
-| "Watch videos about X" | Picks the top 2–3 talks itself and answers from their transcripts. |
-| `/youtube-to-skill <url>` | Full conversion: content-type question → cost estimate → generates the skill. |
-| `/youtube-to-skill <playlist-url> my-slug` | Same, each playlist video becomes one chapter. |
-| "Add this video to yt-my-course: \<url\>" | Appends new chapters to an existing generated skill. |
+| "Bài nói này nói gì về leader election? \<url\>" | Trả lời trong chat bằng tiếng Việt, có mốc thời gian. Không tạo file. |
+| "Tóm tắt video này \<url của video tiếng Anh/Nhật/...\>" | Đọc phụ đề gốc, trả lời bằng tiếng Việt. |
+| "Tìm video về Raft consensus" | Tìm trên YouTube, hiện tiêu đề/kênh/thời lượng/lượt xem, bạn chọn. |
+| "Xem video về X" | Tự chọn 2–3 bài nói tốt nhất và trả lời từ transcript của chúng. |
+| `/youtube-to-skill <url>` | Chuyển đổi đầy đủ: hỏi loại nội dung → ước tính chi phí → tạo skill. |
+| `/youtube-to-skill <playlist-url> ten-skill` | Như trên, mỗi video trong playlist thành một chương. |
+| "Thêm video này vào yt-khoa-hoc-cua-toi: \<url\>" | Bổ sung chương mới vào skill đã tạo. |
 
-Conversion always shows a token-cost estimate and waits for confirmation before generating anything. After a conversion, restart Claude Code to load the new skill.
+Chuyển đổi luôn hiện ước tính token và chờ xác nhận trước khi tạo gì. Sau khi chuyển đổi, khởi động lại Claude Code để nạp skill mới.
 
-## Requirements
+## Yêu cầu
 
 - Claude Code
 - Python 3.8+
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — transcript fetching and search
-- [ffmpeg](https://ffmpeg.org/) — only for the optional visual pass
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — tải transcript và tìm kiếm
+- [ffmpeg](https://ffmpeg.org/) — chỉ cần cho visual pass tùy chọn
 
-The scripts are standard-library-only Python; there is nothing to `pip install` for the skill itself.
+Script chỉ dùng thư viện chuẩn của Python; không cần `pip install` gì cho bản thân skill.
 
-## Install
+## Cài đặt
+
+### Windows
+
+Claude Code trên Windows chạy lệnh shell qua Git Bash, các lệnh của skill này được viết cho nó. Cài công cụ bằng winget (hoặc scoop/choco), rồi clone vào thư mục người dùng:
+
+```powershell
+winget install yt-dlp.yt-dlp Gyan.FFmpeg
+git clone https://github.com/devdenhatdinh/youtube-to-skills "$env:USERPROFILE\.claude\skills\youtube-to-skill"
+```
+
+Đảm bảo `python3` (hoặc `python`), `yt-dlp` và `ffmpeg` chạy được trong Git Bash (`where yt-dlp` trong terminal mới sau khi cài).
 
 ### macOS
 
 ```sh
 brew install yt-dlp ffmpeg
-git clone https://github.com/EftikharAzim/youtube-to-skill ~/.claude/skills/youtube-to-skill
+git clone https://github.com/devdenhatdinh/youtube-to-skills ~/.claude/skills/youtube-to-skill
 ```
 
 ### Linux
 
-Install ffmpeg from your distribution; install yt-dlp via pipx (distro packages of yt-dlp go stale quickly, and a stale yt-dlp stops working against YouTube):
+Cài ffmpeg từ bản phân phối; cài yt-dlp qua pipx (gói yt-dlp của distro cũ rất nhanh, và yt-dlp cũ sẽ không chạy được với YouTube):
 
 ```sh
 # Debian/Ubuntu
 sudo apt install ffmpeg pipx && pipx install yt-dlp
-# Fedora (ffmpeg via RPM Fusion)
+# Fedora (ffmpeg qua RPM Fusion)
 sudo dnf install ffmpeg pipx && pipx install yt-dlp
 # Arch
 sudo pacman -S ffmpeg yt-dlp
 
-git clone https://github.com/EftikharAzim/youtube-to-skill ~/.claude/skills/youtube-to-skill
+git clone https://github.com/devdenhatdinh/youtube-to-skills ~/.claude/skills/youtube-to-skill
 ```
 
-### Windows
+### Kiểm tra (mọi hệ điều hành)
 
-Claude Code on Windows runs shell commands through Git Bash, which this skill's commands are written for. Install the tools with winget (or scoop/choco), then clone into your profile:
-
-```powershell
-winget install yt-dlp.yt-dlp Gyan.FFmpeg
-git clone https://github.com/EftikharAzim/youtube-to-skill "$env:USERPROFILE\.claude\skills\youtube-to-skill"
-```
-
-Make sure `python3`, `yt-dlp`, and `ffmpeg` resolve inside Git Bash (`where yt-dlp` in a new terminal after install).
-
-### Verify (all platforms)
-
-Restart Claude Code, then:
+Khởi động lại Claude Code, rồi:
 
 ```sh
 python3 ~/.claude/skills/youtube-to-skill/scripts/fetch_transcript.py --check
 python3 ~/.claude/skills/youtube-to-skill/scripts/extract_frames.py --check
 ```
 
-Developed on macOS. CI runs the environment checks and parser tests on Linux, macOS, and Windows; full conversions have only been exercised on macOS. Reports welcome.
+CI chạy kiểm tra môi trường và test parser trên Linux, macOS và Windows.
 
-## How it works
+## Cách hoạt động
 
-1. **Transcript** — `scripts/fetch_transcript.py` resolves the URL (video, playlist, or `--search "query"`), downloads json3 captions via yt-dlp, and writes a single `full_text.txt` with per-video headers, `## CHAPTER:` markers taken from YouTube's own chapter data, and `[H:MM:SS]` paragraph timestamps, plus a `metadata.json` with word/token counts and whether captions were manual or auto.
-2. **Visual pass (optional)** — `scripts/extract_frames.py` downloads the video stream (720p by default, video-only), runs ffmpeg scene-change detection to grab one keyframe per slide/screen transition, and writes `frames.json` mapping frames to timestamps. The agent reads the frames as images and transcribes code, tables, and diagrams into the chapters. When a slide and the auto-caption disagree on a term, the slide wins.
-3. **Generation** — the agent analyzes structure (playlist videos → chapters; else YouTube chapter markers; else topic-shift segmentation), then writes the skill files under explicit per-chapter token budgets. Long transcripts are probed with grep/sed rather than loaded whole.
+1. **Transcript** — `scripts/fetch_transcript.py` phân giải URL (video, playlist, hoặc `--search "từ khóa"`), đọc danh sách phụ đề có sẵn của video, chọn track tốt nhất theo ngôn ngữ ưu tiên, tải phụ đề json3 qua yt-dlp, rồi ghi một file `full_text.txt` có header từng video, dòng `## CHAPTER:` lấy từ dữ liệu chương của YouTube, mốc `[H:MM:SS]` đầu mỗi đoạn, cùng `metadata.json` chứa số từ/token, loại phụ đề (thủ công / tự động / dịch máy) và ngôn ngữ phụ đề.
+2. **Visual pass (tùy chọn)** — `scripts/extract_frames.py` tải luồng video (mặc định 720p, chỉ hình), chạy dò đổi cảnh của ffmpeg để lấy một keyframe mỗi lần đổi slide/màn hình, và ghi `frames.json` ánh xạ frame → mốc thời gian. Agent đọc frame như ảnh và chép code, bảng, sơ đồ vào các chương. Khi slide và phụ đề tự động mâu thuẫn về một thuật ngữ, slide thắng.
+3. **Tạo skill** — agent phân tích cấu trúc (video trong playlist → chương; nếu không thì theo mốc chương YouTube; nếu không nữa thì chia theo chỗ chuyển chủ đề), rồi viết các file skill bằng tiếng Việt theo ngân sách token từng chương. Transcript dài được dò bằng grep/sed thay vì nạp toàn bộ.
 
-Both scripts work standalone if you just want transcripts or keyframes:
+Cả hai script dùng độc lập được nếu bạn chỉ cần transcript hoặc keyframe:
 
 ```sh
-python3 scripts/fetch_transcript.py "https://youtube.com/watch?v=..." --lang en
+python3 scripts/fetch_transcript.py "https://youtube.com/watch?v=..."              # tự chọn ngôn ngữ
+python3 scripts/fetch_transcript.py "https://youtube.com/watch?v=..." --lang vi,en  # ưu tiên Việt rồi Anh
 python3 scripts/fetch_transcript.py --search "raft consensus" --max-results 8
 python3 scripts/extract_frames.py "https://youtube.com/watch?v=..." --max-frames 60
 ```
 
-Useful flags: `--lang` (caption language), `--max-videos` (playlist cap, default 25), `--scene` (scene-change threshold; raise to 0.4 for camera-cut-heavy talks, lower to 0.2 for screencasts), `--height` (frame resolution, default 720).
+Tham số hữu ích:
 
-## Limitations
+| Tham số | Ý nghĩa |
+|---|---|
+| `--lang` | Ngôn ngữ phụ đề ưu tiên. `auto` (mặc định) = ngôn ngữ gốc của video → vi → en. Hoặc danh sách như `vi,en`, `ja,en`. Có thể trộn: `ko,auto`. |
+| `--allow-translated` | Cho dùng phụ đề dịch máy của YouTube khi không có phụ đề gốc theo ngôn ngữ ưu tiên. Mặc định tắt vì agent dịch tốt hơn. |
+| `--max-videos` | Giới hạn số video của playlist (mặc định 25). |
+| `--scene` | Ngưỡng đổi cảnh; tăng lên 0.4 cho bài nói cắt cảnh nhiều, giảm xuống 0.2 cho screencast. |
+| `--height` | Độ phân giải frame (mặc định 720). |
 
-- **No captions, no transcript.** Videos without manual or auto captions are skipped. Whisper transcription is not included.
-- **Auto-captions garble technical terms.** The workflow corrects errors that context makes certain and marks ambiguous ones `(sp?)`, but treat auto-caption-derived glossaries with some suspicion. `metadata.json` tells you which kind you got.
-- **Visuals cost tokens.** The visual pass reads each frame as an image (~1.2K tokens per frame, typically 30–60 frames per talk). It is opt-in and priced in the pre-flight estimate.
-- **Slide legibility depends on the source.** Full-screen slides and screencasts read cleanly at 720p; small picture-in-picture slide insets in older webcasts may not.
-- **yt-dlp decays.** YouTube changes break it periodically; keep it updated.
-- **Scale.** Single talks and courses up to ~25 videos convert in one session (the playlist cap defaults to 25; raise with `--max-videos`). Longer playlists work in batches via the update mode, but fetching captions for very many videos in one run may hit YouTube rate limiting, and generation cost grows linearly with runtime — roughly 12–15K tokens of transcript per hour of speech before generation overhead.
-- **Format matters.** Structured material (lectures, conference talks, courses) extracts well. Conversational content — podcasts, interviews, vlogs — yields thin skills, because there is little named structure to extract. Private, members-only, and age-restricted videos are not supported.
+## Giới hạn
 
-## Responsible use
+- **Không có phụ đề thì không có transcript.** Video không có cả phụ đề thủ công lẫn tự động sẽ bị bỏ qua. Không tích hợp Whisper.
+- **Phụ đề tự động làm sai thuật ngữ.** Với tiếng Việt còn hay sai dấu, nhầm từ đồng âm, và phiên âm lung tung các từ tiếng Anh nói xen. Quy trình sửa những lỗi mà ngữ cảnh đã rõ và đánh dấu `(sp?)` chỗ mơ hồ, nhưng hãy dè chừng glossary sinh từ phụ đề tự động. `metadata.json` cho biết bạn nhận được loại nào.
+- **Hình ảnh tốn token.** Visual pass đọc mỗi frame như một ảnh (~1.2K token mỗi frame, thường 30–60 frame mỗi bài nói). Tính năng này phải bật mới chạy và được tính vào ước tính chi phí.
+- **Độ đọc được của slide phụ thuộc nguồn.** Slide toàn màn hình và screencast đọc rõ ở 720p; slide nhỏ dạng picture-in-picture trong webcast cũ có thể không đọc được.
+- **yt-dlp xuống cấp theo thời gian.** YouTube thay đổi làm nó hỏng định kỳ; hãy cập nhật thường xuyên.
+- **Quy mô.** Bài nói đơn lẻ và khóa học tới ~25 video chuyển được trong một phiên (giới hạn playlist mặc định 25; tăng bằng `--max-videos`). Playlist dài hơn chạy theo đợt qua chế độ cập nhật, nhưng tải phụ đề quá nhiều video một lúc có thể bị YouTube giới hạn tốc độ, và chi phí tăng tuyến tính theo thời lượng — khoảng 12–15K token transcript mỗi giờ nói tiếng Anh (tiếng Việt cao hơn), chưa tính chi phí tạo skill.
+- **Định dạng quan trọng.** Nội dung có cấu trúc (bài giảng, bài nói hội thảo, khóa học) trích xuất tốt. Nội dung dạng trò chuyện — podcast, phỏng vấn, vlog — cho skill mỏng vì ít cấu trúc có tên để trích. Video riêng tư, dành cho hội viên và giới hạn độ tuổi không được hỗ trợ.
 
-This tool fetches captions and (optionally) video streams from YouTube, which YouTube's Terms of Service restrict; use it for personal study and research, and be aware that heavy use may get your IP rate-limited. Generated skills are derivative works of the source video — keep them private unless the video's license (e.g. Creative Commons) permits redistribution, and credit the speaker either way. You are responsible for how you use this tool.
+## Sử dụng có trách nhiệm
 
-## Credits
+Công cụ này tải phụ đề và (tùy chọn) luồng video từ YouTube, điều mà Điều khoản dịch vụ của YouTube có hạn chế; hãy dùng cho mục đích học tập và nghiên cứu cá nhân, và lưu ý dùng nhiều có thể khiến IP bị giới hạn tốc độ. Skill sinh ra là tác phẩm phái sinh từ video gốc — giữ riêng tư trừ khi giấy phép của video (vd Creative Commons) cho phép phân phối lại, và luôn ghi nguồn diễn giả. Bạn chịu trách nhiệm về cách mình sử dụng công cụ này.
 
-Output format and generation methodology adapted from [book-to-skill](https://github.com/virgiliojr94/book-to-skill) by virgiliojr94 (MIT). This skill is self-contained and does not depend on it.
+## Ghi công
 
-## License
+Fork từ [EftikharAzim/youtube-to-skill](https://github.com/EftikharAzim/youtube-to-skill) (MIT). Định dạng đầu ra và phương pháp tạo skill phỏng theo [book-to-skill](https://github.com/virgiliojr94/book-to-skill) của virgiliojr94 (MIT). Skill này tự chứa và không phụ thuộc vào nó.
+
+## Giấy phép
 
 MIT

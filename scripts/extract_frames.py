@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """
-extract_frames.py — download a YouTube video at readable resolution and extract
-slide-change keyframes for the youtube-to-skill visual pass.
+extract_frames.py — tải video YouTube ở độ phân giải đủ đọc và trích keyframe
+mỗi lần đổi slide/cảnh, phục vụ bước "visual pass" của youtube-to-skill.
 
-Requires: yt-dlp AND ffmpeg on PATH.
+Cần: yt-dlp VÀ ffmpeg trên PATH.
 
-The agent later Reads these frames as images and transcribes slides, on-screen
-code, tables, and diagrams into the generated chapter files.
+Agent sau đó đọc các frame như ảnh và chép lại slide, code trên màn hình,
+bảng, sơ đồ vào các file chương.
 
-Outputs (in --workdir/frames_<video_id>/):
-  f0001.jpg, f0002.jpg, ...   — one frame per detected scene change
-  frames.json                 — [{file, t_seconds, ts}] mapping frames to timestamps
+Kết quả (trong --workdir/frames_<video_id>/):
+  f0001.jpg, f0002.jpg, ...   — mỗi lần đổi cảnh một frame
+  frames.json                 — [{file, t_seconds, ts}] ánh xạ frame → mốc thời gian
 
-Usage:
+Cách dùng:
   python3 extract_frames.py URL [--workdir DIR] [--height 720]
                             [--scene 0.30] [--max-frames 60] [--keep-video] [--check]
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -27,8 +29,18 @@ import tempfile
 from pathlib import Path
 
 
+def setup_utf8_io():
+    # Windows consoles/pipes default to a legacy code page; non-ASCII output
+    # would raise UnicodeEncodeError without this.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")
+        except (AttributeError, ValueError):
+            pass
+
+
 def die(msg: str, code: int = 1):
-    print(f"ERROR: {msg}", file=sys.stderr)
+    print(f"LỖI: {msg}", file=sys.stderr)
     sys.exit(code)
 
 
@@ -41,12 +53,16 @@ def fmt_ts(seconds: float) -> str:
 
 def check_env():
     ok = True
-    for tool, hint in (("yt-dlp", "brew install yt-dlp"), ("ffmpeg", "brew install ffmpeg")):
+    hints = (("yt-dlp", "winget install yt-dlp.yt-dlp (Windows) | brew install yt-dlp (macOS)"
+                        " | pipx install yt-dlp (Linux)"),
+             ("ffmpeg", "winget install Gyan.FFmpeg (Windows) | brew install ffmpeg (macOS)"
+                        " | sudo apt install ffmpeg (Linux)"))
+    for tool, hint in hints:
         path = shutil.which(tool)
         if path:
-            print(f"{tool} : OK at {path}")
+            print(f"{tool} : OK tại {path}")
         else:
-            print(f"{tool} : MISSING → install with: {hint}")
+            print(f"{tool} : THIẾU → cài bằng: {hint}")
             ok = False
     sys.exit(0 if ok else 1)
 
@@ -98,26 +114,26 @@ def download_video(url: str, height: int, workdir: Path) -> Path:
         if p.returncode != 0:
             if attempt == 1:
                 continue
-            die(f"video download failed:\n{p.stderr.strip()[-800:]}")
+            die(f"tải video thất bại:\n{p.stderr.strip()[-800:]}")
         path = Path(p.stdout.strip().splitlines()[-1])
         if not path.exists():
             if attempt == 1:
                 continue
-            die(f"yt-dlp reported {path} but it does not exist")
+            die(f"yt-dlp báo file {path} nhưng file không tồn tại")
 
         actual = probe_duration(path)
         if expected and actual and actual < 0.8 * expected:
-            print(f"WARNING: downloaded duration {actual:.0f}s is far short of expected "
-                  f"{expected:.0f}s (attempt {attempt}) — likely a truncated download.",
+            print(f"CẢNH BÁO: video tải về dài {actual:.0f}s, ngắn hơn nhiều so với "
+                  f"{expected:.0f}s (lần {attempt}) — có thể tải bị cụt.",
                   file=sys.stderr)
             if attempt == 1:
                 path.unlink(missing_ok=True)
                 continue
-            die(f"download truncated after retry: got {actual:.0f}s, expected ~{expected:.0f}s. "
-                f"Re-run, or investigate network/yt-dlp — do NOT trust frames extracted from this file.")
+            die(f"tải vẫn bị cụt sau khi thử lại: được {actual:.0f}s, cần ~{expected:.0f}s. "
+                f"Chạy lại hoặc kiểm tra mạng/yt-dlp — KHÔNG tin các frame trích từ file này.")
         return path
 
-    die("download failed after retry")
+    die("tải thất bại sau khi thử lại")
 
 
 def detect_frames(video: Path, frames_dir: Path, scene: float) -> list:
@@ -129,13 +145,13 @@ def detect_frames(video: Path, frames_dir: Path, scene: float) -> list:
          "-fps_mode", "vfr", "-q:v", "3", str(frames_dir / "f%04d.jpg")],
         capture_output=True, text=True)
     if p.returncode != 0:
-        die(f"ffmpeg failed:\n{p.stderr.strip()[-800:]}")
+        die(f"ffmpeg lỗi:\n{p.stderr.strip()[-800:]}")
     times = [float(m) for m in re.findall(r"pts_time:([0-9]+\.?[0-9]*)", p.stderr)]
     files = sorted(frames_dir.glob("f*.jpg"))
     if len(times) != len(files):
-        die(f"ffmpeg wrote {len(files)} frames but showinfo reported {len(times)} timestamps — "
-            f"frame-to-timestamp alignment cannot be trusted, so slide citations would be wrong. "
-            f"Try a different --scene value, or report this with the video URL.")
+        die(f"ffmpeg ghi {len(files)} frame nhưng showinfo báo {len(times)} mốc thời gian — "
+            f"không tin được việc ghép frame với mốc thời gian, trích dẫn slide sẽ sai. "
+            f"Thử giá trị --scene khác, hoặc báo lỗi kèm URL video.")
     return list(zip(files, times))
 
 
@@ -180,39 +196,41 @@ def subsample(frames: list, max_frames: int) -> list:
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("url", nargs="?", help="YouTube video URL (single video)")
+    setup_utf8_io()
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("url", nargs="?", help="URL một video YouTube")
     ap.add_argument("--workdir", default=None)
     ap.add_argument("--height", type=int, default=720,
-                    help="max video height; 720 keeps on-screen code legible (default: 720)")
+                    help="chiều cao video tối đa; 720 đủ đọc code trên màn hình (mặc định: 720)")
     ap.add_argument("--scene", type=float, default=0.30,
-                    help="scene-change threshold 0..1; lower = more frames (default: 0.30)")
+                    help="ngưỡng đổi cảnh 0..1; thấp hơn = nhiều frame hơn (mặc định: 0.30)")
     ap.add_argument("--max-frames", type=int, default=60,
-                    help="cap on extracted frames; evenly subsampled if exceeded (default: 60)")
+                    help="số frame tối đa; vượt thì lấy mẫu đều (mặc định: 60)")
     ap.add_argument("--keep-video", action="store_true",
-                    help="keep the downloaded video file after extraction")
-    ap.add_argument("--check", action="store_true", help="verify environment and exit")
+                    help="giữ lại file video sau khi trích frame")
+    ap.add_argument("--check", action="store_true", help="kiểm tra môi trường rồi thoát")
     args = ap.parse_args()
 
     if args.check:
         check_env()
     if not args.url:
-        ap.error("a video URL is required (or use --check)")
+        ap.error("cần URL video (hoặc dùng --check)")
     for tool in ("yt-dlp", "ffmpeg"):
         if not shutil.which(tool):
-            die(f"{tool} not found on PATH (run with --check for install hints)")
+            die(f"không tìm thấy {tool} trên PATH (chạy --check để xem cách cài)")
 
     workdir = Path(args.workdir) if args.workdir else Path(tempfile.gettempdir()) / "yt_skill_work"
     workdir.mkdir(parents=True, exist_ok=True)
 
-    print("Downloading video stream…", file=sys.stderr)
+    print("Đang tải video…", file=sys.stderr)
     video = download_video(args.url, args.height, workdir)
     vid_id = re.sub(r"^video_|\.[^.]+$", "", video.name)
     frames_dir = workdir / f"frames_{vid_id}"
 
     duration = probe_duration(video) or 0.0
 
-    print("Detecting scene changes…", file=sys.stderr)
+    print("Đang dò các lần đổi cảnh…", file=sys.stderr)
     frames = detect_frames(video, frames_dir, args.scene)
     total_detected = len(frames)
     fallback_used = False
@@ -225,9 +243,9 @@ def main():
     coverage_ratio = (last_t / duration) if duration else 1.0
     too_sparse = duration > 300 and len(frames) < max(3, round(duration / 600))
     if duration > 60 and (too_sparse or coverage_ratio < 0.5):
-        print(f"WARNING: scene detection only found {total_detected} frame(s) covering "
-              f"{coverage_ratio:.0%} of the {duration:.0f}s video — falling back to uniform "
-              f"time-sampling instead of trusting sparse/clustered scene-change output.",
+        print(f"CẢNH BÁO: dò đổi cảnh chỉ được {total_detected} frame, phủ "
+              f"{coverage_ratio:.0%} của video {duration:.0f}s — chuyển sang lấy mẫu đều "
+              f"theo thời gian thay vì tin kết quả dò cảnh thưa/dồn cục.",
               file=sys.stderr)
         target = min(args.max_frames, max(10, round(duration / 90)))
         frames = uniform_sample(video, frames_dir, duration, target)
