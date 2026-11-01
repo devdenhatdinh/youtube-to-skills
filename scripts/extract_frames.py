@@ -13,7 +13,7 @@ Kết quả (trong --workdir/frames_<video_id>/):
   frames.json                 — [{file, t_seconds, ts}] ánh xạ frame → mốc thời gian
 
 Cách dùng:
-  python3 extract_frames.py URL [--workdir DIR] [--height 720]
+  python extract_frames.py URL [--workdir DIR] [--height 720]
                             [--scene 0.30] [--max-frames 60] [--keep-video] [--check]
 """
 
@@ -53,10 +53,7 @@ def fmt_ts(seconds: float) -> str:
 
 def check_env():
     ok = True
-    hints = (("yt-dlp", "winget install yt-dlp.yt-dlp (Windows) | brew install yt-dlp (macOS)"
-                        " | pipx install yt-dlp (Linux)"),
-             ("ffmpeg", "winget install Gyan.FFmpeg (Windows) | brew install ffmpeg (macOS)"
-                        " | sudo apt install ffmpeg (Linux)"))
+    hints = (("yt-dlp", "winget install yt-dlp.yt-dlp"), ("ffmpeg", "winget install Gyan.FFmpeg"))
     for tool, hint in hints:
         path = shutil.which(tool)
         if path:

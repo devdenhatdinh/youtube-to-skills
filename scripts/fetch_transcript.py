@@ -21,9 +21,9 @@ Chọn phụ đề (--lang, mặc định "auto"):
   --allow-translated (chất lượng kém; agent tự dịch tốt hơn).
 
 Cách dùng:
-  python3 fetch_transcript.py URL [URL ...] [--lang auto] [--workdir DIR]
+  python fetch_transcript.py URL [URL ...] [--lang auto] [--workdir DIR]
                               [--max-videos N] [--allow-translated] [--check]
-  python3 fetch_transcript.py --search "TỪ KHÓA" [--max-results 8]
+  python fetch_transcript.py --search "TỪ KHÓA" [--max-results 8]
       → in kết quả tìm kiếm dạng JSON (không tải transcript); chọn URL
         rồi chạy lại với các URL đó.
 """
@@ -83,8 +83,7 @@ def base_lang(code: str) -> str:
 def check_env():
     ytdlp = shutil.which("yt-dlp")
     if not ytdlp:
-        print("yt-dlp : THIẾU → cài bằng: winget install yt-dlp.yt-dlp  (Windows)"
-              " | brew install yt-dlp  (macOS) | pipx install yt-dlp  (Linux)")
+        print("yt-dlp : THIẾU → cài bằng: winget install yt-dlp.yt-dlp")
         sys.exit(1)
     ver = run(["yt-dlp", "--version"]).stdout.strip()
     print(f"yt-dlp : OK ({ver}) tại {ytdlp}")

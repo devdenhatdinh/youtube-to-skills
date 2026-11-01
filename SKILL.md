@@ -43,7 +43,7 @@ Bài nói hội thảo, chuỗi bài giảng và playlist khóa học chứa chu
 
 0.5. **Tìm kiếm / Khám phá** — người dùng có chủ đề nhưng không có URL ("tìm/xem video về X"):
    ```bash
-   python3 scripts/fetch_transcript.py --search "X" --max-results 8
+   python scripts/fetch_transcript.py --search "X" --max-results 8
    ```
    In kết quả JSON (title, channel, duration, views, url). "tìm video" → hiển thị bảng (kèm cột ngôn ngữ đoán từ tiêu đề), để người dùng chọn. "xem video về X" → tự chọn 2–3 video tốt nhất, ưu tiên bài nói dài từ kênh uy tín hơn video ngắn, nói rõ đã chọn gì, rồi làm như Xem nhanh (hoặc Chuyển đổi đầy đủ nếu họ muốn skill). Áp dụng chiến lược từ khóa ở mục **Ngôn ngữ**.
 
@@ -69,9 +69,9 @@ Phân tích tham số:
 ## Bước 1 — Kiểm tra môi trường
 
 ```bash
-python3 scripts/fetch_transcript.py --check
+python scripts/fetch_transcript.py --check
 ```
-Nếu thiếu yt-dlp, đưa người dùng lệnh cài đặt rồi dừng. (Trên Windows nếu `python3` không chạy được thì dùng `python` hoặc `py`.)
+Nếu thiếu yt-dlp, đưa người dùng lệnh cài đặt rồi dừng. (Nếu `python` không chạy được thì thử `py`; đừng dùng `python3` — trên Windows nó thường là stub của Microsoft Store.)
 
 ## Bước 1.5 — Xác định loại nội dung
 
@@ -87,7 +87,7 @@ Ngôn ngữ phụ đề **không cần hỏi**: để `--lang auto`. Chỉ truy�
 ## Bước 2 — Tải transcript
 
 ```bash
-python3 scripts/fetch_transcript.py <INPUT_URLS> --workdir "${TMPDIR:-/tmp}/yt_skill_work"
+python scripts/fetch_transcript.py <INPUT_URLS> --workdir "${TMPDIR:-/tmp}/yt_skill_work"
 ```
 
 Tạo trong workdir:
@@ -130,7 +130,7 @@ Với transcript tiếng Việt từ phụ đề tự động, grep có thể tr
 
 Nếu đồng ý, với từng video:
 ```bash
-python3 scripts/extract_frames.py "<url>" --workdir "${TMPDIR:-/tmp}/yt_skill_work" --max-frames 60
+python scripts/extract_frames.py "<url>" --workdir "${TMPDIR:-/tmp}/yt_skill_work" --max-frames 60
 ```
 Cần ffmpeg (`--check` in hướng dẫn cài). Tạo `frames_<id>/f*.jpg` + `frames.json` (`[{file, t_seconds, ts}]`).
 

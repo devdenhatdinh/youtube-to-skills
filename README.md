@@ -2,6 +2,26 @@
 
 Một skill cho [Claude Code](https://claude.com/claude-code) biến video và playlist YouTube thành agent skill có cấu trúc, dùng lại được — hoặc chỉ trả lời câu hỏi về một video mà không tạo file nào.
 
+## Cài nhanh
+
+Dán vào Claude Code:
+
+```
+Cài skill này giúp mình: https://github.com/devdenhatdinh/youtube-to-skills
+```
+
+Claude sẽ tự cài theo [INSTALL.md](INSTALL.md). Hoặc tự chạy một lệnh trong PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/devdenhatdinh/youtube-to-skills/main/install.ps1 | iex
+```
+
+Bản fork này chỉ hỗ trợ **Windows**.
+
+Xong thì khởi động lại Claude Code và thử: *"Tóm tắt video này: \<link YouTube\>"*.
+
+> **AI agent:** nếu người dùng nhờ cài skill này, làm theo [INSTALL.md](INSTALL.md).
+
 Đây là bản fork của [EftikharAzim/youtube-to-skill](https://github.com/EftikharAzim/youtube-to-skill), được Việt hóa cho người dùng Việt:
 
 - **Giao tiếp và skill sinh ra bằng tiếng Việt**, giữ nguyên tên framework/thuật ngữ gốc kèm diễn giải tiếng Việt.
@@ -50,6 +70,7 @@ Chuyển đổi luôn hiện ước tính token và chờ xác nhận trước k
 
 ## Yêu cầu
 
+- Windows 10/11 có `winget`
 - Claude Code
 - Python 3.8+
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) — tải transcript và tìm kiếm
@@ -57,51 +78,23 @@ Chuyển đổi luôn hiện ước tính token và chờ xác nhận trước k
 
 Script chỉ dùng thư viện chuẩn của Python; không cần `pip install` gì cho bản thân skill.
 
-## Cài đặt
+## Cài đặt thủ công
 
-### Windows
+Không cần đọc phần này nếu đã dùng [Cài nhanh](#cài-nhanh). Installer làm đúng các bước dưới đây.
 
-Claude Code trên Windows chạy lệnh shell qua Git Bash, các lệnh của skill này được viết cho nó. Cài công cụ bằng winget (hoặc scoop/choco), rồi clone vào thư mục người dùng:
+Claude Code trên Windows chạy lệnh shell qua Git Bash, các lệnh của skill này được viết cho nó. Cài công cụ bằng winget, rồi clone vào thư mục người dùng (PowerShell):
 
 ```powershell
 winget install yt-dlp.yt-dlp Gyan.FFmpeg
 git clone https://github.com/devdenhatdinh/youtube-to-skills "$env:USERPROFILE\.claude\skills\youtube-to-skill"
 ```
 
-Đảm bảo `python3` (hoặc `python`), `yt-dlp` và `ffmpeg` chạy được trong Git Bash (`where yt-dlp` trong terminal mới sau khi cài).
+Khởi động lại Claude Code, rồi kiểm tra (dùng `py` hoặc `python`; `python3` trên Windows có thể là stub của Microsoft Store):
 
-### macOS
-
-```sh
-brew install yt-dlp ffmpeg
-git clone https://github.com/devdenhatdinh/youtube-to-skills ~/.claude/skills/youtube-to-skill
+```powershell
+py "$env:USERPROFILE\.claude\skills\youtube-to-skill\scripts\fetch_transcript.py" --check
+py "$env:USERPROFILE\.claude\skills\youtube-to-skill\scripts\extract_frames.py" --check
 ```
-
-### Linux
-
-Cài ffmpeg từ bản phân phối; cài yt-dlp qua pipx (gói yt-dlp của distro cũ rất nhanh, và yt-dlp cũ sẽ không chạy được với YouTube):
-
-```sh
-# Debian/Ubuntu
-sudo apt install ffmpeg pipx && pipx install yt-dlp
-# Fedora (ffmpeg qua RPM Fusion)
-sudo dnf install ffmpeg pipx && pipx install yt-dlp
-# Arch
-sudo pacman -S ffmpeg yt-dlp
-
-git clone https://github.com/devdenhatdinh/youtube-to-skills ~/.claude/skills/youtube-to-skill
-```
-
-### Kiểm tra (mọi hệ điều hành)
-
-Khởi động lại Claude Code, rồi:
-
-```sh
-python3 ~/.claude/skills/youtube-to-skill/scripts/fetch_transcript.py --check
-python3 ~/.claude/skills/youtube-to-skill/scripts/extract_frames.py --check
-```
-
-CI chạy kiểm tra môi trường và test parser trên Linux, macOS và Windows.
 
 ## Cách hoạt động
 
@@ -112,10 +105,10 @@ CI chạy kiểm tra môi trường và test parser trên Linux, macOS và Windo
 Cả hai script dùng độc lập được nếu bạn chỉ cần transcript hoặc keyframe:
 
 ```sh
-python3 scripts/fetch_transcript.py "https://youtube.com/watch?v=..."              # tự chọn ngôn ngữ
-python3 scripts/fetch_transcript.py "https://youtube.com/watch?v=..." --lang vi,en  # ưu tiên Việt rồi Anh
-python3 scripts/fetch_transcript.py --search "raft consensus" --max-results 8
-python3 scripts/extract_frames.py "https://youtube.com/watch?v=..." --max-frames 60
+python scripts/fetch_transcript.py "https://youtube.com/watch?v=..."              # tự chọn ngôn ngữ
+python scripts/fetch_transcript.py "https://youtube.com/watch?v=..." --lang vi,en  # ưu tiên Việt rồi Anh
+python scripts/fetch_transcript.py --search "raft consensus" --max-results 8
+python scripts/extract_frames.py "https://youtube.com/watch?v=..." --max-frames 60
 ```
 
 Tham số hữu ích:
